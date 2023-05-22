@@ -1,118 +1,251 @@
-import Image from 'next/image'
-import { Inter } from 'next/font/google'
+import { useEffect, useState } from "react";
+import axios from "axios";
+import Image from "next/image";
+import Link from "next/link";
+import NotFound from "@/public/not-found.png";
+import Cat from "@/components/icons/Cat";
 
-const inter = Inter({ subsets: ['latin'] })
+const BookSearch = () => {
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [category, setCategory] = useState<string>("");
+  const [priceFilter, setPriceFilter] = useState<string>("All");
+  const [maxResults, setMaxResults] = useState<number>(40);
+  const [books, setBooks] = useState<any>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
 
-export default function Home() {
+  const categories = [
+    "Art",
+    "Biography",
+    "Business & Economics",
+    "Comics & Graphic Novels",
+    "Computers",
+    "Cooking",
+    "Education",
+    "Fiction",
+    "Health & Fitness",
+    "History",
+    "Humor",
+    "Literary Collections",
+    "Mathematics",
+    "Music",
+    "Poetry",
+    "Religion",
+    "Science",
+    "Self-Help",
+    "Sports & Recreation",
+    "Travel",
+  ];
+
+  function formatRupiah(value: any) {
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+    })
+      .format(value)
+      .replace(/(\.|,)00$/, "");
+  }
+
+  const handleSearch = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      let url = `https://www.googleapis.com/books/v1/volumes?q=${searchTerm}&maxResults=${maxResults}`;
+      const response = await axios.get(url);
+      const allBooks = response.data.items;
+      let filteredBooks = allBooks;
+      if (category !== "") {
+        filteredBooks = allBooks.filter((book: any) =>
+          book.volumeInfo.categories?.some((cat: string) =>
+            cat.toLowerCase().includes(category.toLowerCase())
+          )
+        );
+      }
+      if (priceFilter === "free") {
+        filteredBooks = filteredBooks.filter(
+          (book: any) =>
+            isNaN(book.saleInfo.retailPrice?.amount) ||
+            book.saleInfo.retailPrice?.amount === 0
+        );
+      } else if (priceFilter === "paid") {
+        filteredBooks = filteredBooks.filter(
+          (book: any) =>
+            !isNaN(book.saleInfo.retailPrice?.amount) &&
+            book.saleInfo.retailPrice?.amount > 0
+        );
+      }
+      const limitedBooks = filteredBooks.slice(
+        0,
+        Math.min(maxResults, filteredBooks.length)
+      );
+      setBooks(limitedBooks);
+      setLoading(false);
+      if (limitedBooks.length === 0 && category !== "") {
+        setError("Category not found");
+      } else if (limitedBooks.length === 0) {
+        setError("No books found");
+      }
+    } catch (error: any) {
+      setLoading(false);
+      if (error.response) {
+        setError("Error: " + JSON.stringify(error.response.data.error.message));
+        console.log(error.response.data.error.message);
+      } else if (error.request) {
+        setError("Request not found");
+        console.log("Request not found");
+      } else {
+        setError("An error occurred: " + error.message);
+        console.log("An error occurred: " + error.message);
+      }
+      setBooks([]);
+    }
+  };
+
+  // console.log("books", books);
+
   return (
-    <main
-      className={`flex min-h-screen flex-col items-center justify-between p-24 ${inter.className}`}
-    >
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">pages/index.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
+    <div className="font-sans">
+      <header className="mt-8">
+        <section className="text-center">
+          <h1 className="text-4xl font-semibold">Book Search App</h1>
+          <h3 className="text-xl font-light">Find the book you want here</h3>
+        </section>
+        <form
+          className="mt-8 flex flex-col-reverse lg:flex-row gap-4 justify-center items-center mx-auto px-4"
+          onSubmit={(e: any) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
+          <div>
+            <select
+              value={category}
+              onChange={(e: any) => setCategory(e.target.value)}
+              className="px-2 py-1 font-semibold border-2 border-black rounded outline-none"
+            >
+              <option value="">All Categories</option>
+              {categories.map((category: any) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex gap-x-2 items-center">
+            <select
+              value={priceFilter}
+              onChange={(e: any) => setPriceFilter(e.target.value)}
+              className="px-2 py-1 font-semibold border-2 border-black rounded outline-none"
+            >
+              <option value="all">All Prices</option>
+              <option value="free">Free</option>
+              <option value="paid">Paid</option>
+            </select>
+
+            <select
+              value={maxResults}
+              onChange={(e: any) => setMaxResults(+e.target.value)}
+              className="px-2 py-1 font-semibold border-2 border-black rounded outline-none"
+            >
+              <option value="40">Find All</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="30">30</option>
+            </select>
+          </div>
+          <div className="flex gap-x-2 items-center">
+            <input
+              type="text"
+              className="py-1 px-2 border-2 border-black outline-none w-[14.2rem] md:w-[20rem] font-semibold rounded-md"
+              value={searchTerm}
+              onChange={(e: any) => setSearchTerm(e.target.value)}
             />
-          </a>
+            <button
+              onClick={handleSearch}
+              className="py-2 px-2 bg-black text-white text-sm font-semibold rounded-md outline-none"
+            >
+              {loading ? (
+                <span className="animate-pulse">Searching...</span>
+              ) : (
+                <span>Search</span>
+              )}
+            </button>
+          </div>
+        </form>
+      </header>
+
+      {error && (
+        <div className="mt-10">
+          <h2 className="font-semibold text-center">{error}</h2>
+          <Cat className="mx-auto mt-2" />
         </div>
+      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-8 px-4 md:px-8">
+        {books.map((book: any) => (
+          <section
+            key={book.id}
+            className="bg-white p-4 shadow flex mb-4 gap-x-4 items-start"
+          >
+            <Image
+              width={400}
+              height={400}
+              src={
+                book.volumeInfo.imageLinks
+                  ? book.volumeInfo.imageLinks?.thumbnail
+                  : NotFound
+              }
+              alt={book.volumeInfo.title}
+              className="mb-4 w-auto h-auto drop-shadow"
+            />
+            <article>
+              <h5 className="text-xs md:text-base font-semibold leading-4 md:leading-5 uppercase">
+                {book.volumeInfo.title}
+              </h5>
+              <p className="text-gray-600 text-[10px] md:text-xs">
+                {book.volumeInfo.authors?.join(", ")}
+              </p>
+              <p className="text-xs md:text-sm mt-3 mb-2 font-semibold">
+                <span className="bg-blue-400 px-1 pb-[2px]">Category</span> :{" "}
+                {book.volumeInfo?.categories
+                  ? book.volumeInfo.categories
+                  : "Unknown"}
+              </p>
+              <p className="text-xs md:text-sm font-semibold mb-4">
+                {isNaN(book.saleInfo.retailPrice?.amount) ? (
+                  <>
+                    <span className="bg-yellow-400 px-1">Status</span> : Not
+                    Available
+                  </>
+                ) : book.saleInfo.retailPrice?.amount === 0 ? (
+                  <>
+                    <span className="bg-green-400 px-1">Price</span> : Free
+                  </>
+                ) : (
+                  <>
+                    <span className="bg-green-400 px-1">Price</span> :{" "}
+                    {formatRupiah(book.saleInfo.retailPrice?.amount)}
+                  </>
+                )}
+              </p>
+              <Link
+                href={book.volumeInfo.previewLink}
+                target="_blank"
+                className={`bg-black text-white text-sm font-semibold px-2 py-1 ${
+                  isNaN(book.saleInfo.retailPrice?.amount)
+                    ? "bg-rose-600 pointer-events-none cursor-not-allowed"
+                    : ""
+                }`}
+              >
+                {isNaN(book.saleInfo.retailPrice?.amount)
+                  ? "Not Available"
+                  : "Get The Book"}
+              </Link>
+            </article>
+          </section>
+        ))}
       </div>
+    </div>
+  );
+};
 
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700/10 after:dark:from-sky-900 after:dark:via-[#0141ff]/40 before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Discover and deploy boilerplate example Next.js&nbsp;projects.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
-  )
-}
+export default BookSearch;
